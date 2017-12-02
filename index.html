@@ -1,0 +1,774 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>Colossal Cave Adventure in Python</title>
+
+		<link href='https://fonts.googleapis.com/css?family=Droid+Sans+Mono' rel='stylesheet' type='text/css'>
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/black.css">
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+		<style type="text/css">
+		/*.reveal code, code, pre, .reveal pre {
+			font-family: "Droid Sans Mono", "Office Code Pro", "Source Code Pro", Monaco, Consolas, monospace;
+		}*/
+		.reveal {
+			background:
+			  linear-gradient(
+				  rgba(0, 0, 0, 0.7),
+				  rgba(0, 0, 0, 0.7)
+			  ),
+			  url('cards.jpg');
+			background-size: 100%;
+		}
+		.reveal, .reveal h1, .reveal h2, .reveal h3, .reveal h4, .reveal code, code, pre, .reveal pre {
+			font-family: "Luxi Mono", "Courier New", Courier, monospace;
+		}
+		/*.reveal code, code, pre, .reveal pre {
+			font-family: "Droid Sans Mono", "Office Code Pro", "Source Code Pro", Monaco, Consolas, monospace;
+		}*/
+		.reveal h3, .reveal h4 {
+			text-transform: none;
+		}
+
+		.footer {
+			position: absolute;
+			right: 0;
+			bottom: 0;
+			left: 0;
+			padding: 1em;
+			text-align: center;
+		}
+
+		.reveal .history {
+			font-size: 50%;
+			top: 140px;
+			bottom: 0;
+			left: -130px;
+			padding: 1em;
+			position: absolute;
+		}
+
+		.reveal .history-item {
+			border: 2px solid #999;
+			color: #999;;
+			margin: 4px;
+			padding: 5px;
+			text-align: center;
+		}
+		.reveal .active {
+			color: #fff;
+			border: 2px solid white;
+		}
+
+		.hljs {
+			background: linear-gradient(
+								rgba(0, 0, 0, 0.3),
+								rgba(0, 0, 0, 0.3)
+							);
+		}
+
+		.reveal pre code {
+			padding: 20px;
+		}
+
+		pre.mult {
+			font-size: 130%;
+			text-align: center;
+			border: none;
+			box-shadow: none;
+		}
+		.reveal .smallcaps {
+			font-variant-caps: small-caps;
+		}
+		#freq-input {
+			font-size: 130%;
+		}
+		.reveal p {
+			text-align: left;
+		}
+		.reveal p.center {
+			text-align: center;
+		}
+
+		.reveal table tr td {
+			font-size: 50%;
+		}
+
+		.reveal table tr td.rightborder {
+			border-right: 2px solid white;
+		}
+		</style>
+	</head>
+	<body>
+		<!--
+
+Colossal Cave, also known as Adventure or ADVENT, is the original text adventure. It was written in FORTRAN IV and there is practically no way to run the original program without translating it. We'll explore software archeology to write a Python interpreter to run the FORTRAN code as-is, without translating it. Come learn about pre-ASCII and 36-bit integers and writing interpreters in Python!
+Abstract
+The oldest known Colossal Cave source code we have is from 1977 and written for the then 11-year-old PDP-10 in a variant of FORTRAN IV that is now completely defunct and was specific to the PDP-10.
+
+We'll talk briefly about a history of video games, FORTRAN, and the PDP machines that led to this, and explain how the quirks of this machine were baked into its variant of FORTRAN IV. We'll look at some ancient PDP manuals to discover the secrets you need to know to read this amazing source code.
+
+We'll delve into how one goes about writing a simple interpreter in Python to run this FORTRAN IV code as-is: translating strings, implementing its odd arithmetic and conditional statements, reading in data from our "tape" drive, how we get input and send output using our "teletype".
+
+If you want a demo of this game playing right now, it is running on Heroku and accessible via SMS. Just text anything to +1 (669) 238-3683 ("669 ADVENT3") to start a game. Send RESET to restart the game. Case doesn't matter when sending commands. It identifies you based on your phone number and will remember your game indefinitely. (We'll also talk about how we achieved this in Heroku.)
+
+
+
+		-->
+		<div class="reveal">
+			<div class="slides">
+				<div class="footer"><a href="https://twitter.com/chris_swenson">@chris_swenson</a>
+			  &nbsp;
+				&nbsp;
+				&nbsp;
+				&nbsp;
+				&nbsp;
+				<a href="https://github.com/swenson">github.com/swenson</a>
+				</div>
+				<section>
+					<h2>Colossal Cave Adventure in Python</h2>
+					<br />
+					<p class="center"><strong>Christopher Swenson</strong></p>
+					<p class="center">North Bay Python</p>
+					<p class="center">Petaluma, CA 2017</p>
+				</section>
+				<section>
+					<h3>What is this talk?</h3>
+					<p class="center">Colossal Cave Adventure, the PDP-10, FORTRAN IV, and a Python interpreter</p>
+					<br />
+
+					<h3>Who is this talk for?</h3>
+					<p class="center">Curious compiler people</p>
+
+					<br />
+					<p class="center">Slides eventually available on GitHub</p>
+					<!--<p class="center"><a href="https://swenson.github.io/.../#/">swenson...</a></p>-->
+				</section>
+				<section>
+					<h3>Who am I?</h3>
+					<p>Christopher Swenson, Ph.D</p>
+					<p>Currently at Twilio (prev. Google, Government, Simple, Capital One)</p>
+					<p>Occasional BeeWare core contributor and PyDX organizer</p>
+					<p>I love programming languages and stuff.</p>
+				</section>
+				<section>
+					<h3>Motivation</h3>
+					<p>Idea: write a game with text messaging!</p>
+					<p>&hellip; why not "port" the first text adventure?!</p>
+				</section>
+				<section>
+					<h2>ADVENTURE</h2>
+					<p>a.k.a., Colossal Cave</p>
+					<p>1976 text adventure, probably the first</p>
+					<p>Wildly popular and influential</p>
+					<p>Written in FORTRAN IV for the PDP-10 (defunct)</p>
+					<p>Text to +1 (669) 238-3683 to play now!</p>
+				</section>
+				<section>
+					<pre>
+SOMEWHERE NEARBY IS COLOSSAL CAVE, WHERE OTHERS HAVE FOUND
+FORTUNES IN TREASURE AND GOLD, THOUGH IT IS RUMORED
+THAT SOME WHO ENTER ARE NEVER SEEN AGAIN. MAGIC IS SAID
+TO WORK IN THE CAVE. I WILL BE YOUR EYES AND HANDS. DIRECT
+ME WITH COMMANDS OF 1 OR 2 WORDS.
+(ERRORS, SUGGESTIONS, COMPLAINTS TO CROWTHER)
+(IF STUCK TYPE HELP FOR SOME HINTS)
+
+YOU ARE STANDING AT THE END OF A ROAD BEFORE A SMALL BRICK
+BUILDING . AROUND YOU IS A FOREST. A SMALL
+STREAM FLOWS OUT OF THE BUILDING AND DOWN A GULLY.
+					</pre>
+				</section>
+
+				<section>
+					<h2>PDP-10</h2>
+					<p>Pic from <a href="http://www.columbia.edu/cu/computinghistory/pdp10.html">http://www.columbia.edu/cu/computinghistory/pdp10.html</a></p>
+					<center><img src="ka10.jpg" height="50%"></img></center>
+				</section>
+				<section>
+					<h2>PDP-10 FORTRAN IV!</h2>
+					<p class="center">We're talking:
+						<ul>
+							<li>All caps</li>
+					    <li>No recursion</li>
+					    <li>Line numbers</li>
+					    <li>Spaces don't matter</li>
+							<li>Punch cards</li>
+						</ul>
+					</p>
+				</section>
+				<section>
+					<pre><code class="hljs fortran">C ADVENTURES
+        IMPLICIT INTEGER(A-Z)
+        REAL RAN
+        COMMON RTEXT,LLINE
+        DIMENSION IOBJ(300),ICHAIN(100),IPLACE(100)
+        1 ,IFIXED(100),COND(300),PROP(100),ABB(300),LLINE(1000,22)
+        2 ,LTEXT(300),STEXT(300),KEY(300),DEFAULT(300),TRAVEL(1000)
+        3 ,TK(25),KTAB(1000),ATAB(1000),BTEXT(200),DSEEN(10)
+        4 ,DLOC(10),ODLOC(10),DTRAV(20),RTEXT(100),JSPKT(100)
+        5 ,IPLT(100),IFIXT(100)
+					</code></pre>
+				</section>
+				<section>
+					<pre><code class="hljs fortran">C READ THE PARAMETERS
+
+        IF(SETUP.NE.0) GOTO 1
+        SETUP=1
+        KEYS=1
+        LAMP=2
+        GRATE=3
+C ...
+        DATA(JSPKT(I),I=1,16)/24,29,0,31,0,31,38,38,42,42,43,46,77,71
+        1 ,73,75/
+        DATA(IPLT(I),I=1,20)/3,3,8,10,11,14,13,9,15,18,19,17,27,28,29
+        1 ,30,0,0,3,3/
+					</code></pre>
+				</section>
+				<section>
+					<pre><code class="hljs fortran">        DO 1001 I=1,300
+        STEXT(I)=0
+        IF(I.LE.200) BTEXT(I)=0
+        IF(I.LE.100)RTEXT(I)=0
+1001    LTEXT(I)=0
+					</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs fortran">
+1002    READ(1,1003) IKIND
+1003    FORMAT(G)
+			</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs fortran">        GOTO(1100,1004,1004,1013,1020,1004,1004)(IKIND+1)
+				</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs fortran">
+1004    READ(1,1005)JKIND,(LLINE(I,J),J=3,22)
+1005    FORMAT(1G,20A5)
+			</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs fortran">1       CALL YES(65,1,0,YEA)
+				</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs fortran">        SUBROUTINE YES(X,Y,Z,YEA)
+        IMPLICIT INTEGER(A-Z)
+        CALL SPEAK(X)
+        CALL GETIN(JUNK,IA1,JUNK,IB1)
+        IF(IA1.EQ.'NO'.OR.IA1.EQ.'N') GOTO 1
+        YEA=1
+        IF(Y.NE.0) CALL SPEAK(Y)
+        RETURN
+1       YEA=0
+        IF(Z.NE.0)CALL SPEAK(Z)
+        RETURN
+        END
+      </code></pre>
+		</section>
+		<section>
+				<h2>36-bit words</h2>
+				<p>Pre-1980 (~), many different default word sizes</p>
+				<p>Nowadays, 8/16/32/64/128/256 are common</p>
+				<p>DEC (PDP, VAX) used 12, 36, 32</p>
+			</section>
+			<section>
+				<h2>36-bit ASCII???</h2>
+				<p>PDP-10 (1966) used 7-bit ASCII from 1963</p>
+				<p>ASCII not what we know until 1967</p>
+				<p>36/7 = 5 (with 1 bit remainder)</p>
+			</section>
+			<section>
+				<h2>36/7 = 5</h2>
+				<p>Packed left-to-right, 1 pad bit on the right</p>
+				<p class="smalltable">
+					<table>
+						<tr>
+							<td colspan="7" class="rightborder">A</td>
+							<td colspan="7" class="rightborder">B</td>
+							<td colspan="7" class="rightborder">C</td>
+							<td colspan="7" class="rightborder">D</td>
+							<td colspan="7" class="rightborder">E</td>
+							<td>&mdash;</td>
+						</tr>
+						<tr>
+							<td>1</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td class="rightborder">1</td>
+							<td>1</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>1</td>
+							<td class="rightborder">0</td>
+							<td>1</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>1</td>
+							<td class="rightborder">1</td>
+							<td>1</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>1</td>
+							<td>0</td>
+							<td class="rightborder">0</td>
+							<td>1</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>1</td>
+							<td>0</td>
+							<td class="rightborder">1</td>
+							<td>0</td>
+						</tr>
+					</table>
+				</p>
+			</section>
+			<section>
+				<h2>Why does it matter?</h2>
+				<p>Because the program tokenizes user input itself!</p>
+				<pre><code class="hljs nohighlight">        SUBROUTINE GETIN(TWOW,B,C,D)
+        IMPLICIT INTEGER(A-Z)
+        DIMENSION A(5),M2(6)
+        DATA M2/"4000000000,"20000000,"100000,"400,"2,0/
+6       ACCEPT 1,(A(I), I=1,4)
+1       FORMAT(4A5)
+        TWOW=0
+        S=0
+        B=A(1)
+        DO 2 J=1,4
+        DO 2 K=1,5
+        MASK1="774000000000
+        IF(K.NE.1) MASK1="177*M2(K)
+        IF(((A(J).XOR."201004020100).AND.MASK1).EQ.0)GOTO 3
+        IF(S.EQ.0) GOTO 2
+        TWOW=1
+        CALL SHIFT(A(J),7*(K-1),XX)
+        CALL SHIFT(A(J+1),7*(K-6),YY)
+        MASK=-M2(6-K)
+        C=(XX.AND.MASK)+(YY.AND.(-2-MASK))
+        GOTO 4
+3       IF(S.EQ.1) GOTO 2
+        S=1
+        IF(J.EQ.1) B=(B.AND.-M2(K)).OR.("201004020100.AND.
+        1 (-M2(K).XOR.-1))
+2       CONTINUE
+4       D=A(2)
+        RETURN
+        END
+				</code></pre>
+			</section>
+			<section>
+			<pre><code class="hljs fortran">        PAUSE 'INIT DONE'
+			</code></pre>
+		</section>
+		<section>
+			<h2>How a normal compiler works</h2>
+			<ol>
+				<li>Scan text into token stream</li>
+				<li>Parse tokens into syntax tree</li>
+				<li>Optimize syntax tree</li>
+				<li>Generate code</li>
+			</ol>
+		</section>
+		<section>
+			<h2>But that just sounds exhausting</h2>
+			<h3>And I only have a few days</h3>
+		</section>
+		<section>
+			<h2>Coding a quick-and-dirty compiler in Python</h2>
+			<p>My general strategy:</p>
+			<ul>
+				<li>Split by lines</li>
+				<li>Split line by whitespace, commas, parens</li>
+				<li>Check for which statement this is</li>
+				<li>Parse the line</li>
+			</ul>
+		</section>
+		<section>
+			<h2><code>namedtuple</code> is your friend</h2>
+			<pre><code class="hljs python" data-trim>
+					# raw lines
+					Line = namedtuple('Line', 'comment,label,continuation,statements'.split(','))
+
+					# lexical analysis
+					Token = namedtuple('Token', ['name', 'value'])
+			</code></pre>
+		</section>
+		<section>
+				<h2>Pseudo-grammar</h2>
+				<pre><code class="hljs python" data-trim>
+					# grammar structure
+					If = namedtuple('If', ['expr', 'statement'])
+					IfNum = namedtuple('IfNum', ['expr', 'neg', 'zero', 'pos'])
+					Goto = namedtuple('Goto', ['labels', 'choice'])
+					Assign = namedtuple('Assign', ['lhs', 'rhs'])
+					Comparison = namedtuple('Compare', ['a', 'op', 'b'])
+					Name = namedtuple('Name', ['name'])
+					Int = namedtuple('Int', ['value'])
+					Float = namedtuple('Float', ['value'])
+					# ...
+				</code></pre>
+			</section>
+		<section>
+			<h2>Load the "tape drive" and source code</h2>
+			<pre><code class="hljs python" data-trim>
+					# code and data
+					with open('advdat.77-03-31.txt') as fin:
+							data = fin.read()
+					# remove blank line
+					data = data.replace('\n\n', '\n')
+
+					with open('advf4.77-03-31.txt') as fin:
+							code = fin.read()
+
+					# ...
+					lines = combine_lines(parse_lines(code))
+			</code></pre>
+		</section>
+		<section>
+				<h2>Lexical Analysis</h2>
+				<pre><code class="hljs python" data-trim>
+						# lexical analysis
+
+						def parse_lines(text):
+								return [parse_line(line) for line in text.split('\n')]
+
+						def parse_line(line):
+								comment = False
+								line = line.replace('\t', ' ' * 8)
+								if not line:
+										return commentLine
+								if line[0] == 'C' or line[0] == '*':
+										return commentLine
+								label = line[0:5].strip()
+								if label:
+										label = int(label)
+				</code></pre>
+			</section>
+		<section>
+			<h2>Lexical analysis (cont'd.)</h2>
+			<pre><code class="hljs python" data-trim>
+							continuation = line[5] != ' '
+							statements = line[6:].strip()
+							if statements[0].isdigit() and statements[1] == ' ':
+									continuation = True
+									statements = statements[2:]
+							return Line(comment, label, continuation, statements)
+			</code></pre>
+		</section>
+		<section>
+			<h2>Main loop</h2>
+			<pre><code class="hljs python" data-trim>
+				def execute(self, current):
+					next = self.execute_statement(self.prog[current], current)
+					if next is None:
+							next = self.current + 1
+					if next == -1 or \
+							(self.dostack and self.dostack[-1][1] == self.current and next == self.current + 1):
+							# return to the beginning of the Do
+							return self.dostack[-1][0]
+					return next
+			</code></pre>
+		</section>
+		<section>
+			<h2>Giant switch</h2>
+			<pre><code class="hljs python" data-trim>
+				def execute_statement(self, stmt, current):
+					if isinstance(stmt, If):
+							expr = self.eval_expr(stmt.expr)
+							if isinstance(expr, bool) or isinstance(expr, int):
+									if expr:
+											return self.execute_statement(stmt.statement, current)
+									else:
+											return
+				</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs python" data-trim>
+				def eval_expr(self, expr):
+					if isinstance(expr, int):
+							return expr
+					if isinstance(expr, str):
+							return expr
+					if isinstance(expr, Op):
+							a = self.eval_expr(expr.a)
+							b = self.eval_expr(expr.b)
+							if expr.op == '.XOR.':
+									if isinstance(a, str):
+											a = string_to_dec_num(a)
+									if isinstance(b, str):
+											b = string_to_dec_num(b)
+									return a ^ b
+			</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs python" data-trim>
+				def parse_statement(self, statement):
+					if statement.startswith('IF ') or statement.startswith('IF('):
+							# parse if-statement
+							statement = statement[2:].strip()
+							r = match_right_paren(statement)
+							expr = parse_expr(statement[1:r].strip())
+							stmt = statement[r+1:].strip()
+							if numericIfRegex.match(stmt):
+									# numerical if
+									m = numericIfRegex.match(stmt)
+									a, b, c = int(m.group(1)), int(m.group(2)), int(m.group(3))
+									return IfNum(expr, a, b, c)
+							stmt = self.parse_statement(stmt)
+							return If(expr, stmt)
+				</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs python" data-trim>
+				def execute_type(self, format, vars):
+					if isinstance(vars, ArrayRange):
+							# hack
+							# ...
+					ai = 0
+					vi = 0
+					while ai < len(format.args) and vi < len(vars):
+							arg = format.args[ai]
+							ai += 1
+							if isinstance(arg, AsciiFormat):
+									for c in xrange(arg.count):
+											if vi >= len(vars):
+													break
+											var = vars[vi]
+											vi += 1
+
+											self.handler.write(to_string(self.eval_expr(var)))
+									continue
+							elif isinstance(arg, String):
+									self.handler.write(arg.value)
+									continue
+							print 'halt on format', format, vars
+							exit()
+					self.handler.write("\n")
+			</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs python" data-trim>
+				def go(self):
+					self.current_subroutine = '__main__'
+					while True:
+							self.current = self.execute(self.current)
+
+			</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs python" data-trim>
+					# state
+					class Game(object):
+							def getstate(self):
+									d = dict(
+											globals=self.globals,
+											subroutines=self.subroutines,
+											substack=self.substack,
+											stmtstack=self.stmtstack,
+											current=self.current,
+											varstack=self.varstack,
+											progstack=self.progstack,
+											dostack=self.dostack,
+											prog=self.prog,
+											labels=self.labels,
+											current_subroutine=self.current_subroutine,
+											waiting_for_user=self.waiting_for_user)
+									return bz2.compress(pickle.dumps(d))
+
+							def setstate(self, incoming):
+									data = pickle.loads(bz2.decompress(incoming))
+									self.globals = data['globals']
+									self.subroutines = data['subroutines']
+									self.substack = data['substack']
+									self.stmtstack = data['stmtstack']
+									self.current = data['current']
+									self.varstack = data['varstack']
+									self.progstack = data['progstack']
+									self.dostack = data['dostack']
+									self.prog = data['prog']
+									self.labels = data['labels']
+									self.current_subroutine = data['current_subroutine']
+									self.waiting_for_user = data['waiting_for_user']
+								</code></pre>
+		</section>
+		<section>
+			<pre><code class="hljs python" data-trim>
+				def execute_accept(self, format, vars):
+					if isinstance(vars, ArrayRange):
+							# hack
+							if not hasattr(vars.expr, 'name'):
+									name = vars.expr[0].name.name
+									index = vars.expr[0].index[0].name
+							else:
+									name = vars.expr.name.name
+									index = vars.expr.index[0].name
+							new_vars = []
+							for i in xrange(self.eval_expr(vars.start), self.eval_expr(vars.end) + 1):
+									new_vars.append(ArrayExpr(name, Int(i)))
+							vars = new_vars
+					self.waiting_for_user = True
+					line = self.handler.read()
+					self.waiting_for_user = False
+					old_data = self.data
+					old_data_cursor = self.data_cursor
+					self.data = line
+					self.data_cursor = 0
+					try:
+							ai = 0
+							vi = 0
+							while ai < len(format.args) and vi < len(vars):
+									arg = format.args[ai]
+									ai += 1
+									if isinstance(arg, AsciiFormat):
+											for c in xrange(arg.count):
+													var = vars[vi]
+													vi += 1
+													chars = self.read_chars(int(arg.read)).upper()
+													self.assign(var, chars)
+											continue
+					finally:
+							self.data = old_data
+							self.data_cursor = old_data_cursor
+				</code></pre>
+		</section>
+		<section>
+			<h2>Three interfaces we need</h2>
+			<ul>
+				<li>Tape</li>
+				<li>Teletype input</li>
+				<li>Teletype output</li>
+			</ul>
+		</section>
+		<section>
+			<h2>SMS!</h2>
+			<p>Decided to use Twilio to make an SMS app to play</p>
+			<p>Host on Heroku with a little Flask app</p>
+			<p>Program is structured so that the interpreter state can be serialized and saved for each phone number.</p>
+		</section>
+		<section>
+			<pre><code class="hljs python" data-trim>
+					@app.route("/incoming-sms", methods=['GET', 'POST'])
+					def sms_reply():
+							try:
+									cur = conn.cursor()
+
+									from_ = str(request.values.get('From'))
+									inp = str(request.values.get('Body', '')).upper().strip()
+									inp = inp[:20] # commands shouldn't be longer than this
+
+									cur.execute("SELECT state FROM adventure WHERE num = %s", (from_,))
+									row = cur.fetchone()
+									exists = row is not None
+									ignore_input = False
+
+									if inp == 'RESET' or inp == 'QUIT':
+											if from_ in states:
+													del states[from_]
+													exists = False # force a reset
+													cur.execute("DELETE FROM adventure WHERE num = %s", (from_,))
+									if not exists:
+											print 'starting new game for', from_
+											handler = TwilioHandler()
+											game = Game(handler)
+											t = threading.Thread(target=game.go)
+											t.daemon = True
+											t.start()
+											states[from_] = [handler, game, t]
+											ignore_input = True
+
+									if exists and from_ not in states:
+											# load from backup
+											handler = TwilioHandler()
+											game = Game(handler)
+											t = threading.Thread(target=game.go)
+											t.daemon = True
+											t.start()
+											states[from_] = [handler, game, t]
+											# wait fot it to boot
+											while not game.waiting():
+													time.sleep(0.001)
+											# empty the queues
+											while not handler.outqueue.empty():
+													handler.outqueue.get_nowait()
+											game.setstate(row[0])
+											states[from_] = [handler, game, t]
+
+									handler, game, _ = states[from_]
+									if not ignore_input:
+											handler.inqueue.put(inp)
+									time.sleep(0.001)
+									while not game.waiting():
+											time.sleep(0.001)
+									text = ''
+									while not text:
+											while not handler.outqueue.empty():
+													text += handler.outqueue.get()
+													time.sleep(0.001)
+
+									# now save the game state to the database
+									state = game.getstate()
+									if exists:
+											cur.execute("UPDATE adventure SET state = %s, modified = NOW() WHERE num = %s", (psycopg2.Binary(state), from_))
+									else:
+											cur.execute("INSERT INTO adventure (num, state) VALUES (%s,%s)", (from_, psycopg2.Binary(state)))
+									conn.commit()
+
+									resp = twiml.Response()
+									resp.message(text)
+									return str(resp)
+							finally:
+									cur.close()
+								</code></pre>
+		</section>
+		<section>
+			<h3>Credits</h3>
+			<p>Background photo adapted from original by <a href="https://www.flickr.com/photos/mwichary/2355790455/in/photolist-9BHncA-brVA3T-4WFSeD-58RBtP-4Ab3qP-brVJQK-74fVg4-asqDNS-4FSQYP-bJMSQF-brVEU8-47FbuY-dhJTbT-brW1BR-brVG7T-7MxNmj-7o8R8g-8nRgCm-9Diwje-74fV2x-55zMan-9gEsDa-74fVuD-bs5YBY-egsHYP-6MEEdd-7jnEvD-oPBp5w-brVEJZ-9CgDHZ-brVuEx-dgYfCK-dY6pU8-77eYMn-4Fu6G4-6j5hoQ-bdnv5a-4JL75S-6R3UUe-6U3WjN-6QUHJS-6ZFCiE-brVdhg-5DtYhY-7i4j12-8xTgMJ-7LEzA9-bnxiJ2-nzb3PD-dhkjo2">Marcin Wichary, CC 2.0</a></p>
+	</div>
+</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+			Reveal.initialize({
+				width: 1280,
+				height: 720,
+				history: true,
+				transition: 'slide',
+				transitionSpeed: 'fast',
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					// { src: 'plugin/math/math.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() {
+						hljs.initHighlightingOnLoad();
+						hljs.configure({tabReplace: '  '});
+					} }
+				]
+			});
+		</script>
+	</body>
+</html>
